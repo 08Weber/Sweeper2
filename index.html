@@ -8,24 +8,19 @@
     <title>Minesweeper</title>
     <style>
         :root {
+            /* Standardtema (Dark) läses in först */
             --bg: linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
             --glass: rgba(50,50,75,0.45);
             --glassBorder: rgba(120,120,180,0.28);
             --glassShine: rgba(255,255,255,0.07);
-            --blur: blur(28px) saturate(180%);
             --text: #FFFFFF;
             --textSec: #8E8E93;
-            --textTer: #48484A;
             --blue: #0A84FF;
             --green: #30D158;
             --red: #FF453A;
             --orange: #FF9F0A;
-            --sep: rgba(255,255,255,0.09);
             --cellUp: rgba(90,90,130,0.45);
-            --cellUpBorder: rgba(160,160,220,0.18);
             --cellDown: rgba(20,20,40,0.55);
-            --cellDownBorder: rgba(0,0,0,0.35);
-            --shadow: 0 8px 40px rgba(0,0,0,0.55);
         }
 
         *, *::before, *::after {
@@ -46,34 +41,86 @@
             align-items: center;
             padding-bottom: 52px;
             position: relative;
-            overflow: hidden;
-            transition: background 0.5s;
+            overflow-x: hidden;
+            transition: background 0.4s ease;
         }
 
         .glass-panel {
             background: var(--glass);
-            backdrop-filter: var(--blur);
-            -webkit-backdrop-filter: var(--blur);
+            backdrop-filter: blur(28px) saturate(180%);
+            -webkit-backdrop-filter: blur(28px) saturate(180%);
             border: 1px solid var(--glassBorder);
-            box-shadow: inset 0 1px 0 var(--glassShine), var(--shadow);
+            box-shadow: inset 0 1px 0 var(--glassShine), 0 8px 40px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
         }
 
+        /* Temameny */
+        .top-bar {
+            width: 100%;
+            max-width: 520px;
+            padding: 16px 16px 0;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .theme-btn {
+            background: var(--glass);
+            border: 1px solid var(--glassBorder);
+            color: var(--text);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        #theme-sheet {
+            display: none;
+            width: calc(100% - 32px);
+            max-width: 400px;
+            margin-top: 10px;
+            border-radius: 20px;
+            padding: 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+        .theme-opt {
+            background: rgba(128,128,128,0.15);
+            border: 1px solid transparent;
+            color: var(--text);
+            border-radius: 12px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .theme-opt.active {
+            background: var(--blue);
+            color: #fff;
+            box-shadow: 0 0 18px rgba(10,132,255,0.5);
+        }
+
+        /* Anpassat bräde för att tvinga allt på skärmen */
         #board-container {
             margin-top: 16px;
-            border-radius: 22px;
-            padding: 14px;
-            overflow-x: auto;
-            max-width: calc(100vw - 20px);
+            border-radius: 18px;
+            padding: 8px; /* Mindre padding för mer yta åt rutorna */
+            width: calc(100vw - 16px);
+            max-width: 450px;
             touch-action: none;
         }
 
         #board {
             display: grid;
-            gap: 2px;
+            width: 100%;
+            /* gap sätts dynamiskt beroende på svårighetsgrad */
         }
 
         .cell {
-            border-radius: 7px;
+            width: 100%;
+            aspect-ratio: 1; /* Tvingar rutorna att bli perfekta kvadrater oavsett bredd */
+            border-radius: 5px;
             border: none;
             display: flex;
             align-items: center;
@@ -81,16 +128,16 @@
             font-weight: 700;
             font-family: inherit;
             cursor: pointer;
-            transition: background 0.12s;
+            transition: background 0.1s;
             -webkit-tap-highlight-color: transparent;
             touch-action: none;
+            padding: 0;
+            margin: 0;
         }
 
         .cell.up {
             background: var(--cellUp);
-            box-shadow: inset 0 1px 0 var(--glassShine), 0 2px 5px rgba(0,0,0,0.2);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
+            box-shadow: inset 0 1px 0 var(--glassShine), 0 2px 4px rgba(0,0,0,0.15);
         }
 
         .cell.down {
@@ -101,16 +148,15 @@
 
         .cell.boom {
             background: linear-gradient(135deg, var(--red), rgba(255,69,58,0.6));
-            outline: 1px solid rgba(255,69,58,0.53);
-            box-shadow: 0 0 14px rgba(255,69,58,0.47), inset 0 0 6px rgba(255,69,58,0.27);
             animation: shake 0.4s;
+            box-shadow: 0 0 14px rgba(255,69,58,0.47);
         }
 
         .title {
             font-size: 38px;
             font-weight: 800;
             letter-spacing: -1.2px;
-            margin: 16px 0 4px;
+            margin: 10px 0 4px;
             background: linear-gradient(130deg, var(--blue), var(--green));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -122,9 +168,7 @@
             border-radius: 10px;
             cursor: pointer;
             font-size: 14px;
-            transition: all 0.2s;
             font-family: inherit;
-            -webkit-tap-highlight-color: transparent;
             color: var(--textSec);
             background: transparent;
             border: 1px solid transparent;
@@ -133,7 +177,7 @@
             font-weight: 700;
             background: rgba(255,255,255,0.15);
             color: var(--blue);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
             border: 1px solid var(--glassBorder);
         }
 
@@ -148,14 +192,13 @@
 
         .btn-new {
             margin-top: 12px;
-            background: linear-gradient(135deg, var(--blue), rgba(10,132,255,0.6));
+            background: linear-gradient(135deg, var(--blue), rgba(10,132,255,0.7));
             border: 1px solid rgba(10,132,255,0.33);
             color: #fff;
             border-radius: 18px;
             padding: 12px 38px;
             font-size: 16px;
             font-weight: 700;
-            box-shadow: 0 4px 22px rgba(10,132,255,0.27), inset 0 1px 0 rgba(255,255,255,0.22);
         }
 
         @keyframes popIn {
@@ -172,15 +215,22 @@
 </head>
 <body>
 
+    <div class="top-bar">
+        <button class="theme-btn" onclick="toggleThemes()">🎨 Themes</button>
+    </div>
+
+    <div id="theme-sheet" class="glass-panel">
+        </div>
+
     <h1 class="title">Mines</h1>
 
-    <div class="glass-panel" style="border-radius:14px; padding:4px; display:flex; gap:4px; margin-top:10px;" id="diff-container">
+    <div class="glass-panel" style="border-radius:14px; padding:4px; display:flex; gap:4px; margin-top:4px;" id="diff-container">
         <button class="diff-btn active" onclick="setDiff('Easy')">Easy</button>
         <button class="diff-btn" onclick="setDiff('Medium')">Medium</button>
         <button class="diff-btn" onclick="setDiff('Hard')">Hard</button>
     </div>
 
-    <div style="display:flex; gap:10px; margin-top:14px; width:calc(100% - 36px); max-width:400px;">
+    <div style="display:flex; gap:10px; margin-top:14px; width:calc(100% - 32px); max-width:400px;">
         <div class="glass-panel stat-box">
             <div style="font-size:19px">💣</div>
             <div style="font-size:21px; font-weight:700" id="mines-left">10</div>
@@ -199,11 +249,48 @@
     <div id="board-container" class="glass-panel">
         <div id="board"></div>
     </div>
+    
     <div style="margin-top:12px; color:var(--textSec); font-size:12px; text-align:center;">
         Tap to reveal • Long-press to flag
     </div>
 
 <script>
+// --- TEMAN ---
+const THEMES = {
+    Light: { bg: "linear-gradient(160deg, #dde8ff 0%, #f5e6ff 50%, #ddfff5 100%)", glass: "rgba(255,255,255,0.45)", glassBorder: "rgba(255,255,255,0.8)", glassShine: "rgba(255,255,255,0.9)", text: "#1C1C1E", textSec: "#6C6C70", blue: "#007AFF", green: "#34C759", red: "#FF3B30", orange: "#FF9500", cellUp: "rgba(255,255,255,0.55)", cellDown: "rgba(220,225,240,0.4)" },
+    Dark: { bg: "linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)", glass: "rgba(50,50,75,0.45)", glassBorder: "rgba(120,120,180,0.28)", glassShine: "rgba(255,255,255,0.07)", text: "#FFFFFF", textSec: "#8E8E93", blue: "#0A84FF", green: "#30D158", red: "#FF453A", orange: "#FF9F0A", cellUp: "rgba(90,90,130,0.45)", cellDown: "rgba(20,20,40,0.55)" },
+    "Pitch Black": { bg: "#000", glass: "rgba(22,22,22,0.75)", glassBorder: "rgba(55,55,55,0.6)", glassShine: "rgba(255,255,255,0.035)", text: "#FFFFFF", textSec: "#555", blue: "#0A84FF", green: "#30D158", red: "#FF453A", orange: "#FF9F0A", cellUp: "rgba(38,38,38,0.9)", cellDown: "rgba(10,10,10,0.92)" },
+    Aurora: { bg: "linear-gradient(160deg, #06000f 0%, #001a10 45%, #00080f 100%)", glass: "rgba(0,255,150,0.07)", glassBorder: "rgba(0,220,140,0.22)", glassShine: "rgba(120,255,200,0.09)", text: "#E0FFED", textSec: "#50E8A0", blue: "#00D4FF", green: "#00FF9F", red: "#FF3A80", orange: "#FFAA00", cellUp: "rgba(0,80,48,0.48)", cellDown: "rgba(0,16,10,0.72)" },
+    Sunset: { bg: "linear-gradient(160deg, #1a0010 0%, #3d0030 40%, #ff5500 100%)", glass: "rgba(255,80,30,0.1)", glassBorder: "rgba(255,150,80,0.3)", glassShine: "rgba(255,200,150,0.1)", text: "#FFF0E8", textSec: "#FF9060", blue: "#FF9500", green: "#FFD60A", red: "#FF2D55", orange: "#FF6B00", cellUp: "rgba(120,30,0,0.45)", cellDown: "rgba(30,5,0,0.7)" }
+};
+
+let currentTheme = "Dark";
+
+function initThemes() {
+    const sheet = document.getElementById("theme-sheet");
+    sheet.innerHTML = Object.keys(THEMES).map(t => 
+        `<button class="theme-opt ${t === currentTheme ? 'active' : ''}" onclick="setTheme('${t}')">${t}</button>`
+    ).join("");
+}
+
+function toggleThemes() {
+    const sheet = document.getElementById("theme-sheet");
+    sheet.style.display = sheet.style.display === "flex" ? "none" : "flex";
+}
+
+function setTheme(name) {
+    currentTheme = name;
+    const th = THEMES[name];
+    const root = document.documentElement;
+    for (const key in th) {
+        root.style.setProperty(`--${key}`, th[key]);
+    }
+    initThemes(); // Uppdatera aktiv knapp
+    setTimeout(toggleThemes, 150); // Stäng menyn automatiskt
+}
+
+
+// --- SPEL LOGIK ---
 const DIFFICULTIES = {
     Easy: { rows: 9, cols: 9, mines: 10 },
     Medium: { rows: 16, cols: 16, mines: 40 },
@@ -232,9 +319,12 @@ function setDiff(d) {
 }
 
 function startGame() {
+    // Tvinga nollställning av timern
     clearInterval(timerInterval);
-    const cfg = DIFFICULTIES[diff];
+    timerInterval = null;
     time = 0;
+    
+    const cfg = DIFFICULTIES[diff];
     minesLeft = cfg.mines;
     status = "idle";
     initialized = false;
@@ -247,15 +337,6 @@ function startGame() {
         }))
     );
     renderBoard();
-}
-
-function startTimer() {
-    if(status === "playing" && !timerInterval) {
-        timerInterval = setInterval(() => {
-            time++;
-            updateUI();
-        }, 1000);
-    }
 }
 
 function createBoardLogic(firstRow, firstCol) {
@@ -337,11 +418,17 @@ function handleCellAction(r, c, action) {
     } else if (action === "reveal") {
         if (board[r][c].flagged) return;
 
+        // STARTA SPEL OCH TIMER
         if (!initialized) {
             createBoardLogic(r, c);
             initialized = true;
             status = "playing";
-            startTimer();
+            
+            clearInterval(timerInterval); // Dubbel säkerhet
+            timerInterval = setInterval(() => {
+                time++;
+                updateUI();
+            }, 1000);
         }
 
         if (board[r][c].mine) {
@@ -349,7 +436,8 @@ function handleCellAction(r, c, action) {
             explodedCell = { row: r, col: c };
             status = "lost";
             clearInterval(timerInterval);
-            // Avslöja alla minor
+            
+            // Avslöja minor
             const cfg = DIFFICULTIES[diff];
             for (let i = 0; i < cfg.rows; i++) {
                 for (let j = 0; j < cfg.cols; j++) {
@@ -389,10 +477,14 @@ function updateUI() {
 
 function renderBoard() {
     const cfg = DIFFICULTIES[diff];
-    const cellSize = diff === "Hard" ? 28 : (diff === "Medium" ? 34 : 40);
     const boardEl = document.getElementById("board");
     
-    boardEl.style.gridTemplateColumns = `repeat(${cfg.cols}, ${cellSize}px)`;
+    // Använder 1fr (fraction) för att låta grid tvinga rutorna att exakt rymmas på skärmens bredd.
+    boardEl.style.gridTemplateColumns = `repeat(${cfg.cols}, 1fr)`;
+    
+    // Mindre gap på "Hard" (30 kolumner) så det inte ser konstigt ut
+    boardEl.style.gap = diff === "Hard" ? "1px" : "2px";
+    
     boardEl.innerHTML = "";
 
     for (let r = 0; r < cfg.rows; r++) {
@@ -400,12 +492,16 @@ function renderBoard() {
             const cell = board[r][c];
             const btn = document.createElement("button");
             btn.className = `cell ${cell.revealed ? 'down' : 'up'}`;
-            btn.style.width = `${cellSize}px`;
-            btn.style.height = `${cellSize}px`;
-            btn.style.fontSize = cell.revealed && cell.count > 0 ? (cellSize > 34 ? "15px" : "12px") : "16px";
             
-            const isBoom = explodedCell && explodedCell.row === r && explodedCell.col === c;
-            if (isBoom) btn.classList.add("boom");
+            // Justera textstorleken för att se snyggt ut även när brädet trycks ihop i Hard-mode
+            let fontSize = "16px";
+            if (diff === "Medium") fontSize = cell.revealed ? "13px" : "15px";
+            if (diff === "Hard") fontSize = cell.revealed ? "10px" : "12px";
+            btn.style.fontSize = fontSize;
+            
+            if (explodedCell && explodedCell.row === r && explodedCell.col === c) {
+                btn.classList.add("boom");
+            }
 
             if (cell.revealed) {
                 if (cell.mine) {
@@ -418,14 +514,14 @@ function renderBoard() {
                 btn.innerText = "🚩";
             }
 
-            // Touch händelser för iPhone (Long press = flagga)
+            // Touch-kontroller för mobil
             btn.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 lpFired = false;
                 lpTimer = setTimeout(() => {
                     lpFired = true;
                     handleCellAction(r, c, "flag");
-                }, 450);
+                }, 400); // Något snabbare "long press" för skönare feel
             });
             btn.addEventListener('touchend', (e) => {
                 e.preventDefault();
@@ -434,7 +530,7 @@ function renderBoard() {
             });
             btn.addEventListener('touchmove', () => clearTimeout(lpTimer));
 
-            // Fallback för mus
+            // Kontroller för mus på dator
             btn.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 handleCellAction(r, c, "flag");
@@ -448,7 +544,8 @@ function renderBoard() {
     }
 }
 
-// Initiera
+// Starta allt!
+initThemes();
 startGame();
 </script>
 </body>
