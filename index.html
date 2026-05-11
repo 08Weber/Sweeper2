@@ -2,13 +2,13 @@
 <html lang="sv">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" id="meta-theme-color" content="#1a1a2e">
     <title>Minesweeper</title>
     <style>
         :root {
-            /* Standardtema (Dark) läses in först */
             --bg: linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
             --glass: rgba(50,50,75,0.45);
             --glassBorder: rgba(120,120,180,0.28);
@@ -30,8 +30,15 @@
             user-select: none;
         }
 
+        /* html och body uppdaterade för att ta bort vita kanter */
+        html {
+            background: var(--bg);
+            min-height: 100vh;
+        }
+
         body {
             margin: 0;
+            padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
             min-height: 100vh;
             background: var(--bg);
             font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
@@ -39,8 +46,6 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding-bottom: 52px;
-            position: relative;
             overflow-x: hidden;
             transition: background 0.4s ease;
         }
@@ -101,11 +106,11 @@
             box-shadow: 0 0 18px rgba(10,132,255,0.5);
         }
 
-        /* Anpassat bräde för att tvinga allt på skärmen */
+        /* Brädet */
         #board-container {
             margin-top: 16px;
             border-radius: 18px;
-            padding: 8px; /* Mindre padding för mer yta åt rutorna */
+            padding: 8px; 
             width: calc(100vw - 16px);
             max-width: 450px;
             touch-action: none;
@@ -114,12 +119,11 @@
         #board {
             display: grid;
             width: 100%;
-            /* gap sätts dynamiskt beroende på svårighetsgrad */
         }
 
         .cell {
             width: 100%;
-            aspect-ratio: 1; /* Tvingar rutorna att bli perfekta kvadrater oavsett bredd */
+            aspect-ratio: 1;
             border-radius: 5px;
             border: none;
             display: flex;
@@ -199,6 +203,7 @@
             padding: 12px 38px;
             font-size: 16px;
             font-weight: 700;
+            -webkit-tap-highlight-color: transparent;
         }
 
         @keyframes popIn {
@@ -219,8 +224,7 @@
         <button class="theme-btn" onclick="toggleThemes()">🎨 Themes</button>
     </div>
 
-    <div id="theme-sheet" class="glass-panel">
-        </div>
+    <div id="theme-sheet" class="glass-panel"></div>
 
     <h1 class="title">Mines</h1>
 
@@ -244,24 +248,91 @@
     </div>
 
     <div id="status-banner" style="display:none; margin-top:14px; color:#fff; border-radius:18px; padding:11px 28px; font-size:17px; font-weight:700; animation:popIn 0.35s;"></div>
-    <button class="btn-new" onclick="startGame()">New Game</button>
+    <button class="btn-new" onclick="playSound('ui'); startGame();">New Game</button>
 
     <div id="board-container" class="glass-panel">
         <div id="board"></div>
     </div>
     
-    <div style="margin-top:12px; color:var(--textSec); font-size:12px; text-align:center;">
+    <div style="margin-top:12px; margin-bottom: 20px; color:var(--textSec); font-size:12px; text-align:center;">
         Tap to reveal • Long-press to flag
     </div>
 
 <script>
+// --- LJUD OCH HAPTIC FEEDBACK ---
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playSound(type) {
+    initAudio();
+    if (!audioCtx) return;
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    const now = audioCtx.currentTime;
+
+    if (type === 'reveal') {
+        // Satisfying mjukt popp
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.start(now);
+        osc.stop(now + 0.08);
+        if(navigator.vibrate) navigator.vibrate(10); // Kort vibration
+    } 
+    else if (type === 'flag') {
+        // Dovt klick för flagga
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 0.05);
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+        osc.start(now);
+        osc.stop(now + 0.05);
+        if(navigator.vibrate) navigator.vibrate(20);
+    } 
+    else if (type === 'boom') {
+        // Tung explosion
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.exponentialRampToValueAtTime(10, now + 0.4);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        osc.start(now);
+        osc.stop(now + 0.4);
+        if(navigator.vibrate) navigator.vibrate([50, 50, 150]); // Lång skakning
+    }
+    else if (type === 'ui') {
+        // Meny-knapp klick
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, now);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+        osc.start(now);
+        osc.stop(now + 0.05);
+        if(navigator.vibrate) navigator.vibrate(10);
+    }
+}
+
+
 // --- TEMAN ---
 const THEMES = {
-    Light: { bg: "linear-gradient(160deg, #dde8ff 0%, #f5e6ff 50%, #ddfff5 100%)", glass: "rgba(255,255,255,0.45)", glassBorder: "rgba(255,255,255,0.8)", glassShine: "rgba(255,255,255,0.9)", text: "#1C1C1E", textSec: "#6C6C70", blue: "#007AFF", green: "#34C759", red: "#FF3B30", orange: "#FF9500", cellUp: "rgba(255,255,255,0.55)", cellDown: "rgba(220,225,240,0.4)" },
-    Dark: { bg: "linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)", glass: "rgba(50,50,75,0.45)", glassBorder: "rgba(120,120,180,0.28)", glassShine: "rgba(255,255,255,0.07)", text: "#FFFFFF", textSec: "#8E8E93", blue: "#0A84FF", green: "#30D158", red: "#FF453A", orange: "#FF9F0A", cellUp: "rgba(90,90,130,0.45)", cellDown: "rgba(20,20,40,0.55)" },
-    "Pitch Black": { bg: "#000", glass: "rgba(22,22,22,0.75)", glassBorder: "rgba(55,55,55,0.6)", glassShine: "rgba(255,255,255,0.035)", text: "#FFFFFF", textSec: "#555", blue: "#0A84FF", green: "#30D158", red: "#FF453A", orange: "#FF9F0A", cellUp: "rgba(38,38,38,0.9)", cellDown: "rgba(10,10,10,0.92)" },
-    Aurora: { bg: "linear-gradient(160deg, #06000f 0%, #001a10 45%, #00080f 100%)", glass: "rgba(0,255,150,0.07)", glassBorder: "rgba(0,220,140,0.22)", glassShine: "rgba(120,255,200,0.09)", text: "#E0FFED", textSec: "#50E8A0", blue: "#00D4FF", green: "#00FF9F", red: "#FF3A80", orange: "#FFAA00", cellUp: "rgba(0,80,48,0.48)", cellDown: "rgba(0,16,10,0.72)" },
-    Sunset: { bg: "linear-gradient(160deg, #1a0010 0%, #3d0030 40%, #ff5500 100%)", glass: "rgba(255,80,30,0.1)", glassBorder: "rgba(255,150,80,0.3)", glassShine: "rgba(255,200,150,0.1)", text: "#FFF0E8", textSec: "#FF9060", blue: "#FF9500", green: "#FFD60A", red: "#FF2D55", orange: "#FF6B00", cellUp: "rgba(120,30,0,0.45)", cellDown: "rgba(30,5,0,0.7)" }
+    Light: { topColor: "#dde8ff", bg: "linear-gradient(160deg, #dde8ff 0%, #f5e6ff 50%, #ddfff5 100%)", glass: "rgba(255,255,255,0.45)", glassBorder: "rgba(255,255,255,0.8)", glassShine: "rgba(255,255,255,0.9)", text: "#1C1C1E", textSec: "#6C6C70", blue: "#007AFF", green: "#34C759", red: "#FF3B30", orange: "#FF9500", cellUp: "rgba(255,255,255,0.55)", cellDown: "rgba(220,225,240,0.4)" },
+    Dark: { topColor: "#1a1a2e", bg: "linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)", glass: "rgba(50,50,75,0.45)", glassBorder: "rgba(120,120,180,0.28)", glassShine: "rgba(255,255,255,0.07)", text: "#FFFFFF", textSec: "#8E8E93", blue: "#0A84FF", green: "#30D158", red: "#FF453A", orange: "#FF9F0A", cellUp: "rgba(90,90,130,0.45)", cellDown: "rgba(20,20,40,0.55)" },
+    "Pitch Black": { topColor: "#000000", bg: "#000", glass: "rgba(22,22,22,0.75)", glassBorder: "rgba(55,55,55,0.6)", glassShine: "rgba(255,255,255,0.035)", text: "#FFFFFF", textSec: "#555", blue: "#0A84FF", green: "#30D158", red: "#FF453A", orange: "#FF9F0A", cellUp: "rgba(38,38,38,0.9)", cellDown: "rgba(10,10,10,0.92)" },
+    Aurora: { topColor: "#06000f", bg: "linear-gradient(160deg, #06000f 0%, #001a10 45%, #00080f 100%)", glass: "rgba(0,255,150,0.07)", glassBorder: "rgba(0,220,140,0.22)", glassShine: "rgba(120,255,200,0.09)", text: "#E0FFED", textSec: "#50E8A0", blue: "#00D4FF", green: "#00FF9F", red: "#FF3A80", orange: "#FFAA00", cellUp: "rgba(0,80,48,0.48)", cellDown: "rgba(0,16,10,0.72)" },
+    Sunset: { topColor: "#1a0010", bg: "linear-gradient(160deg, #1a0010 0%, #3d0030 40%, #ff5500 100%)", glass: "rgba(255,80,30,0.1)", glassBorder: "rgba(255,150,80,0.3)", glassShine: "rgba(255,200,150,0.1)", text: "#FFF0E8", textSec: "#FF9060", blue: "#FF9500", green: "#FFD60A", red: "#FF2D55", orange: "#FF6B00", cellUp: "rgba(120,30,0,0.45)", cellDown: "rgba(30,5,0,0.7)" }
 };
 
 let currentTheme = "Dark";
@@ -274,19 +345,25 @@ function initThemes() {
 }
 
 function toggleThemes() {
+    playSound('ui');
     const sheet = document.getElementById("theme-sheet");
     sheet.style.display = sheet.style.display === "flex" ? "none" : "flex";
 }
 
 function setTheme(name) {
+    playSound('ui');
     currentTheme = name;
     const th = THEMES[name];
     const root = document.documentElement;
     for (const key in th) {
-        root.style.setProperty(`--${key}`, th[key]);
+        if(key !== "topColor") root.style.setProperty(`--${key}`, th[key]);
     }
-    initThemes(); // Uppdatera aktiv knapp
-    setTimeout(toggleThemes, 150); // Stäng menyn automatiskt
+    
+    // Ändra färgen på notisfältet högst upp på iPhone
+    document.getElementById('meta-theme-color').setAttribute("content", th.topColor);
+    
+    initThemes(); 
+    setTimeout(toggleThemes, 150); 
 }
 
 
@@ -311,6 +388,7 @@ let lpTimer = null;
 let lpFired = false;
 
 function setDiff(d) {
+    playSound('ui');
     diff = d;
     document.querySelectorAll('.diff-btn').forEach(b => {
         b.classList.toggle('active', b.innerText === d);
@@ -319,7 +397,6 @@ function setDiff(d) {
 }
 
 function startGame() {
-    // Tvinga nollställning av timern
     clearInterval(timerInterval);
     timerInterval = null;
     time = 0;
@@ -407,10 +484,12 @@ function checkWin() {
 }
 
 function handleCellAction(r, c, action) {
+    initAudio(); // Tvingar igång ljudmotorn
     if (status === "lost" || status === "won") return;
 
     if (action === "flag") {
         if (!board[r][c].revealed) {
+            playSound('flag');
             board[r][c].flagged = !board[r][c].flagged;
             const flaggedCount = board.flat().filter(cell => cell.flagged).length;
             minesLeft = DIFFICULTIES[diff].mines - flaggedCount;
@@ -418,13 +497,12 @@ function handleCellAction(r, c, action) {
     } else if (action === "reveal") {
         if (board[r][c].flagged) return;
 
-        // STARTA SPEL OCH TIMER
         if (!initialized) {
             createBoardLogic(r, c);
             initialized = true;
             status = "playing";
             
-            clearInterval(timerInterval); // Dubbel säkerhet
+            clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 time++;
                 updateUI();
@@ -432,6 +510,7 @@ function handleCellAction(r, c, action) {
         }
 
         if (board[r][c].mine) {
+            playSound('boom');
             board[r][c].revealed = true;
             explodedCell = { row: r, col: c };
             status = "lost";
@@ -445,6 +524,7 @@ function handleCellAction(r, c, action) {
                 }
             }
         } else {
+            playSound('reveal');
             floodReveal(r, c);
             if (checkWin()) {
                 status = "won";
@@ -479,10 +559,7 @@ function renderBoard() {
     const cfg = DIFFICULTIES[diff];
     const boardEl = document.getElementById("board");
     
-    // Använder 1fr (fraction) för att låta grid tvinga rutorna att exakt rymmas på skärmens bredd.
     boardEl.style.gridTemplateColumns = `repeat(${cfg.cols}, 1fr)`;
-    
-    // Mindre gap på "Hard" (30 kolumner) så det inte ser konstigt ut
     boardEl.style.gap = diff === "Hard" ? "1px" : "2px";
     
     boardEl.innerHTML = "";
@@ -493,7 +570,6 @@ function renderBoard() {
             const btn = document.createElement("button");
             btn.className = `cell ${cell.revealed ? 'down' : 'up'}`;
             
-            // Justera textstorleken för att se snyggt ut även när brädet trycks ihop i Hard-mode
             let fontSize = "16px";
             if (diff === "Medium") fontSize = cell.revealed ? "13px" : "15px";
             if (diff === "Hard") fontSize = cell.revealed ? "10px" : "12px";
@@ -514,14 +590,14 @@ function renderBoard() {
                 btn.innerText = "🚩";
             }
 
-            // Touch-kontroller för mobil
+            // Touch-kontroller
             btn.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 lpFired = false;
                 lpTimer = setTimeout(() => {
                     lpFired = true;
                     handleCellAction(r, c, "flag");
-                }, 400); // Något snabbare "long press" för skönare feel
+                }, 350); // Snabbare hold för bättre flyt
             });
             btn.addEventListener('touchend', (e) => {
                 e.preventDefault();
@@ -530,7 +606,7 @@ function renderBoard() {
             });
             btn.addEventListener('touchmove', () => clearTimeout(lpTimer));
 
-            // Kontroller för mus på dator
+            // Muskontroller (om du testar på datorn)
             btn.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 handleCellAction(r, c, "flag");
@@ -547,6 +623,10 @@ function renderBoard() {
 // Starta allt!
 initThemes();
 startGame();
+
+// Lyssnare för att initiera ljudkontext på första tap
+document.body.addEventListener('touchstart', initAudio, { once: true });
+document.body.addEventListener('click', initAudio, { once: true });
 </script>
 </body>
 </html>
